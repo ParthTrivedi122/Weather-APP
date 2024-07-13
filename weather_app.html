@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weather App by PARTH</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            font-family: 'Arial', sans-serif;
+            overflow: hidden;
+            color: #fff;
+            background: #000000;
+        }
+        #weather-container {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            z-index: 10;
+            width: 80%;
+            max-width: 500px;
+        }
+        #location-input {
+            padding: 15px;
+            font-size: 18px;
+            border: none;
+            border-radius: 30px;
+            outline: none;
+            width: 70%;
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            transition: all 0.3s ease;
+        }
+        #location-input:focus {
+            background: rgba(255, 255, 255, 0.2);
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.4);
+        }
+        button {
+            padding: 15px 25px;
+            font-size: 18px;
+            border: none;
+            border-radius: 30px;
+            background: #4a4ae9;
+            color: #fff;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin: 15px 5px;
+        }
+        button:hover {
+            background: #6a6af9;
+            transform: scale(1.05);
+        }
+        #weather-info {
+            margin-top: 30px;
+            padding: 30px;
+            border-radius: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            transition: all 0.5s ease;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-around;
+            align-items: center;
+        }
+        #weather-info:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 40px 0 rgba(31, 38, 135, 0.5);
+        }
+        h1, h2 {
+            margin: 0;
+            padding: 10px 0;
+            width: 100%;
+        }
+        .weather-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 15px;
+            transition: all 0.3s ease;
+        }
+        .weather-item:hover {
+            transform: scale(1.1);
+        }
+        .weather-icon {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        #canvas-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        .fade-in {
+            animation: fadeIn 0.5s ease-in;
+        }
+    </style>
+</head>
+<body>
+    <div id="canvas-container"></div>
+    <div id="weather-container">
+        <h1>Weather App</h1>
+        <input type="text" id="location-input" placeholder="Enter city name">
+        <button onclick="getWeather()">Get Weather</button>
+        <button onclick="getUserLocation()">Use My Location</button>
+        <div id="weather-info"></div>
+    </div>
+
+    <script>
+        const API_KEY = 'de4e3961485bbeffbfd76802fdac799c'; // Your API key
+
+        // Three.js setup
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+        // Earth setup
+        const earthGeometry = new THREE.SphereGeometry(5, 32, 32);
+        const earthTexture = new THREE.TextureLoader().load('https://threejs.org/examples/textures/planets/earth_atmos_2048.jpg');
+        const earthMaterial = new THREE.MeshPhongMaterial({ map: earthTexture });
+        const earth = new THREE.Mesh(earthGeometry, earthMaterial);
+        scene.add(earth);
+
+        // Lighting
+        const ambientLight = new THREE.AmbientLight(0x404040);
+        scene.add(ambientLight);
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
+        directionalLight.position.set(5, 3, 5);
+        scene.add(directionalLight);
+
+        camera.position.z = 15;
+
+        function animate() {
+            requestAnimationFrame(animate);
+            earth.rotation.y += 0.002; // Rotate about y-axis (Earth's daily rotation)
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        function getWeather(lat, lon) {
+            const locationInput = document.getElementById('location-input');
+            const weatherInfo = document.getElementById('weather-info');
+            let apiUrl;
+
+            if (lat && lon) {
+                apiUrl = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${API_KEY}&units=metric`;
+            } else {
+                const city = locationInput.value;
+                apiUrl = `https://api.openweathermap.org/data/2.5/weather?q=${city}&appid=${API_KEY}&units=metric`;
+            }
+
+            fetch(apiUrl)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.cod && data.cod !== 200) {
+                        throw new Error(data.message || 'Unknown error occurred');
+                    }
+                    
+                    const { name, main, weather, wind } = data;
+                    
+                    if (!main || !weather) {
+                        throw new Error('Unexpected data structure from API');
+                    }
+
+                    const temperature = main.temp;
+                    const description = weather[0].description;
+                    const humidity = main.humidity;
+                    const windSpeed = wind.speed;
+                    const icon = getWeatherIcon(weather[0].icon);
+
+                    weatherInfo.innerHTML = `
+                        <h2 class="fade-in">${name}</h2>
+                        <div class="weather-item fade-in">
+                            <i class="weather-icon ${icon}"></i>
+                            <span>${temperature.toFixed(1)}°C</span>
+                            <span>${description}</span>
+                        </div>
+                        <div class="weather-item fade-in">
+                            <i class="weather-icon fas fa-tint"></i>
+                            <span>${humidity}%</span>
+                            <span>Humidity</span>
+                        </div>
+                        <div class="weather-item fade-in">
+                            <i class="weather-icon fas fa-wind"></i>
+                            <span>${windSpeed} m/s</span>
+                            <span>Wind Speed</span>
+                        </div>
+                    `;
+
+                    weatherInfo.style.display = 'flex';
+                })
+                .catch(error => {
+                    weatherInfo.innerHTML = `<p class="fade-in">Error: ${error.message}</p>`;
+                    console.error('Error:', error);
+                });
+        }
+
+        function getUserLocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    position => {
+                        const { latitude, longitude } = position.coords;
+                        getWeather(latitude, longitude);
+                    },
+                    error => {
+                        alert(`Geolocation error: ${error.message}`);
+                    }
+                );
+            } else {
+                alert("Geolocation is not supported by this browser.");
+            }
+        }
+
+        function getWeatherIcon(iconCode) {
+            const iconMap = {
+                '01d': 'fas fa-sun',
+                '01n': 'fas fa-moon',
+                '02d': 'fas fa-cloud-sun',
+                '02n': 'fas fa-cloud-moon',
+                '03d': 'fas fa-cloud',
+                '03n': 'fas fa-cloud',
+                '04d': 'fas fa-cloud',
+                '04n': 'fas fa-cloud',
+                '09d': 'fas fa-cloud-showers-heavy',
+                '09n': 'fas fa-cloud-showers-heavy',
+                '10d': 'fas fa-cloud-rain',
+                '10n': 'fas fa-cloud-rain',
+                '11d': 'fas fa-bolt',
+                '11n': 'fas fa-bolt',
+                '13d': 'fas fa-snowflake',
+                '13n': 'fas fa-snowflake',
+                '50d': 'fas fa-smog',
+                '50n': 'fas fa-smog'
+            };
+            return iconMap[iconCode] || 'fas fa-question';
+        }
+
+        // Resize handler
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
